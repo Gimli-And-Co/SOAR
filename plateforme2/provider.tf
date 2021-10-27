@@ -1,5 +1,4 @@
 provider "google" {
-credentials = "${file("credentials.json")}"
-project = "ac-shared-playground"
-region = "us-central1"
+  project = "pure-archive-330307"
+  region  = "europe-west1"
 }

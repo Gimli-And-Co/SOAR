@@ -20,7 +20,11 @@
           :three-line="item.description"
           class="fwidth"
         >
-          <v-checkbox v-model="item.completed" class="mr-4"></v-checkbox>
+          <v-checkbox
+            v-model="item.completed"
+            class="mr-4"
+            v-on:change="markAsCompleted(item.id)"
+          ></v-checkbox>
           <v-list-item-content>
             <v-list-item-title
               ><span class="font-weight-medium">{{ item.title }}</span> -
@@ -104,6 +108,12 @@ export default {
         this.tasks.push(data);
         this.cancelAddTask();
       }
+    },
+    async markAsCompleted(id) {
+      const index = this.tasks.findIndex((e) => e.id == id);
+      await this.$axios.patch(`/tasks/${id}`, {
+        ...this.tasks[index],
+      });
     },
     cancelAddTask() {
       this.taskTitleInput = "";

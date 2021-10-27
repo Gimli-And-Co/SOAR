@@ -1,5 +1,11 @@
-import { Column, CreateDateColumn, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
+@Entity()
 export class Task {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -13,6 +19,6 @@ export class Task {
   @CreateDateColumn()
   creation_date: Date;
 
-  @Column('bool', { nullable: false })
+  @Column()
   completed: boolean;
 }

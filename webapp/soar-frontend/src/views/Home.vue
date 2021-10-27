@@ -86,17 +86,17 @@ export default {
     formValid: false,
   }),
   mounted() {
-    this.fetchAll().then((res) => {
-      this.tasks = res;
+    this.fetchAll().then(({ data }) => {
+      this.tasks = data;
     });
   },
   methods: {
     async fetchAll() {
-      return this.$axios.get("task");
+      return this.$axios.get("tasks");
     },
     async addTask() {
       if (this.formValid) {
-        const { data } = await this.$axios.post("task", {
+        const { data } = await this.$axios.post("tasks", {
           title: this.taskTitleInput,
           description: this.taskDescriptionInput,
           completed: false,
@@ -111,7 +111,7 @@ export default {
       this.addModalState = false;
     },
     async deleteTask(id) {
-      await this.$axios.delete(`task/${id}`);
+      await this.$axios.delete(`tasks/${id}`);
       const index = this.tasks.findIndex((e) => e.id == id);
       this.tasks.splice(index, 1);
     },

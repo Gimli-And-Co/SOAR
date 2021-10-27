@@ -15,7 +15,7 @@ import { TasksModule } from './tasks/tasks.module';
       isGlobal: true,
     }),
     TypeOrmModule.forRootAsync({
-      useFactory: (config: ConfigService) => {
+      useFactory: async (config: ConfigService) => {
         const dbConf = config.get('database');
         console.log(__dirname);
         return {

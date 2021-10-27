@@ -13,31 +13,22 @@ export class TasksService {
   ) {}
 
   create(createTaskDto: CreateTaskDto) {
-    throw new NotImplementedException();
-    // return this.taskRepository.save(createTaskDto);
+    return this.taskRepository.save(createTaskDto);
   }
 
   findAll() {
-    throw new NotImplementedException();
-
-    // return this.taskRepository.find();
+    return this.taskRepository.find();
   }
 
   findOne(id: string) {
-    throw new NotImplementedException();
-
-    // return this.taskRepository.findOne(id);
+    return this.taskRepository.findOne(id);
   }
 
   update(id: string, updateTaskDto: UpdateTaskDto) {
-    throw new NotImplementedException();
-
-    // return this.taskRepository.update(id, updateTaskDto);
+    return this.taskRepository.update(id, updateTaskDto);
   }
 
   remove(id: string) {
-    throw new NotImplementedException();
-
-    // return this.taskRepository.delete(id);
+    return this.taskRepository.delete(id);
   }
 }

@@ -83,7 +83,7 @@ resource "google_compute_instance" "api" {
   }
 
   # Make sure we have the api flask application running
-  metadata_startup_script = file("${path.module}/scripts/backend-startup.sh")
+  metadata_startup_script = file("${path.module}/scripts/frontend-startup.sh")
 
   # Launch the instance in the public subnetwork
   # For details, see https://github.com/gruntwork-io/terraform-google-network/tree/master/modules/vpc-network#access-tier
@@ -131,7 +131,7 @@ resource "google_compute_instance" "webapp" {
 }
 
 data "template_file" "proxy_startup_script" {
-  template = file("${path.module}/scripts/frontend-startup.sh")
+  template = file("${path.module}/frontend-startup.sh")
 
   # Pass in the internal DNS name and private IP address of the LB
   vars = {

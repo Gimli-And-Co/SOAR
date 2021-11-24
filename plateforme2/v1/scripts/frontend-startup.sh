@@ -1,18 +1,35 @@
-#!/bin/bash
+#!/bin/bash -xe
 
 ###########################
 ### Configure Frontend ###
 ###########################
 cd
+sudo apt-get update 2> ~/errors.txt
+sudo apt-get install git nginx -y 2> ~/errors.txt
+
+sleep 1
+
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash 2> ~/errors.txt
-source ~/.bashrc 2> ~/errors.txt
+sleep 1
+
+source .bashrc 2> ~/errors.txt
+sleep 1
 nvm install v12.2.0 2> ~/errors.txt
 
 
 git clone https://github.com/Pyrd/TodoApp.git 2> ~/errors.txt
+sleep 1
 cd TodoApp/soar-frontend 2> ~/errors.txt
+sleep 1
 npm install -g @vue/cli 2> ~/errors.txt
-npm install && npm run build 2> ~/errors.txt
+sleep 1
+
+npm install 2> ~/errors.txt
+sleep 1
+
+npm run build 2> ~/errors.txt
+sleep 1
+
 
 
 #######################

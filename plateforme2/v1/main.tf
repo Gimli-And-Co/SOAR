@@ -67,13 +67,14 @@ resource "google_compute_instance_group" "api" {
 resource "google_compute_instance" "api" {
   project      = var.project
   name         = "${var.name}-api-instance"
-  machine_type = "f1-micro"
+  machine_type = "e2-medium"
   zone         = var.zone
 
   # We're tagging the instance with the tag specified in the firewall rule
   tags = [
     var.name,
     module.vpc_network.private,
+    module.vpc_network.public,
   ]
 
   boot_disk {
@@ -82,11 +83,15 @@ resource "google_compute_instance" "api" {
     }
   }
 
-  # Make sure we have the api flask application running
-  metadata_startup_script = file("${path.module}/scripts/backend-startup.sh")
+  /* metadata_startup_script = file("${path.module}/scripts/backend-startup.sh") */
+  /* metadata_startup_script = data.template_file.api_startup_script.rendered */
+  /* metadata {
+    startup-script = data.template_file.api_startup_script.rendered
+  } */
+  metadata = {
+    startup-script = ("${file(var.frontend_script)}")
+  }
 
-  # Launch the instance in the public subnetwork
-  # For details, see https://github.com/gruntwork-io/terraform-google-network/tree/master/modules/vpc-network#access-tier
   network_interface {
     network    = module.vpc_network.network
     subnetwork = module.vpc_network.public_subnetwork
@@ -100,7 +105,7 @@ resource "google_compute_instance" "api" {
 resource "google_compute_instance" "webapp" {
   project      = var.project
   name         = "${var.name}-webapp-instance"
-  machine_type = "f1-micro"
+  machine_type = "e2-medium"
   zone         = var.zone
 
   # We're tagging the instance with the tag specified in the firewall rule
@@ -115,11 +120,8 @@ resource "google_compute_instance" "webapp" {
     }
   }
 
-  # Make sure we have the proxy flask application running
   metadata_startup_script = data.template_file.proxy_startup_script.rendered
 
-  # Launch the instance in the public subnetwork
-  # For details, see https://github.com/gruntwork-io/terraform-google-network/tree/master/modules/vpc-network#access-tier
   network_interface {
     network    = module.vpc_network.network
     subnetwork = module.vpc_network.public_subnetwork
@@ -128,6 +130,17 @@ resource "google_compute_instance" "webapp" {
       // Ephemeral IP
     }
   }
+
+  /* provisioner "remote-exec" {
+    script = data.template_file.proxy_startup_script.rendered
+
+    connection {
+      type        = "ssh"
+      host        = google_compute_address.static.address
+      user        = var.username
+      private_key = file(var.private_key_path)
+    }
+  } */
 }
 
 data "template_file" "proxy_startup_script" {
@@ -138,4 +151,9 @@ data "template_file" "proxy_startup_script" {
     VUE_APP_APIURL = module.lb.load_balancer_domain_name
     ilb_ip         = module.lb.load_balancer_ip_address
   }
+}
+
+data "template_file" "api_startup_script" {
+  template = file("${path.module}/scripts/backend-startup.sh")
+
 }

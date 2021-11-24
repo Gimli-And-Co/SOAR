@@ -33,7 +33,7 @@ variable "zone" {
 variable "name" {
   description = "Name for the load balancer forwarding rule and prefix for supporting resources."
   type        = string
-  default     = "backend-app"
+  default     = "soar"
 }
 
 variable "custom_labels" {
@@ -42,3 +42,14 @@ variable "custom_labels" {
   default     = {}
 }
 
+variable "private_key_path" {
+  type        = string
+  description = "The path to the private key used to connect to the instance"
+  default     = "~/.ssh/id_rsa"
+}
+
+variable "frontend_script" {
+  description = "Frontend script"
+  type        = string
+  default     = "./scripts/frontend-startup2.sh"
+}

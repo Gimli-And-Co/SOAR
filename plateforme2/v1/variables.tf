@@ -6,7 +6,7 @@
 variable "project" {
   description = "The project ID to create the resources in."
   type        = string
-  default     = "pure-archive-330307"
+  default     = "vertical-planet-334017"
 
 }
 

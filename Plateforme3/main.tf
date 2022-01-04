@@ -1,16 +1,9 @@
-terraform {
-  required_version = ">= 0.14"
-
-  required_providers {
-    google = ">= 3.3"
-  }
-}
-
 provider "google" {
-  project = "plat-332317"
+  project = var.project_id
 }
 
 # Private network
+
 resource "google_compute_network" "private_network" {
   project = "plat-332317"
   provider = google
@@ -36,76 +29,172 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
 }
 
-resource "google_project_service" "run_api" {
-  service = "run.googleapis.com"
 
-  disable_on_destroy = true
+# Cloud SQL
+
+resource "random_id" "db_name_suffix" {
+  byte_length = 4
 }
 
-# Create the Cloud Run service
-resource "google_cloud_run_service" "run_service" {
-  name = "app"
-  location = "europe-west1"
+resource "google_sql_database_instance" "master" {
+  name             = "master-${random_id.db_name_suffix.hex}"
+  region           = "europe-west4"
+  database_version = "POSTGRES_11"
+
+  depends_on = [google_service_networking_connection.private_vpc_connection]
+
+  settings {
+    tier              = "db-f1-micro"
+    availability_type = "REGIONAL"
+    disk_size         = "100"
+    
+    backup_configuration {
+      enabled = true
+    }
+    
+    ip_configuration {
+      ipv4_enabled    = true
+      private_network = google_compute_network.private_network.id
+      // "projects/${var.project_id}/global/networks/default"
+    }
+
+    location_preference {
+      zone = "europe-west4-a"
+    }
+  }
+}
+
+resource "google_sql_user" "main" {
+  depends_on = [
+    google_sql_database_instance.master
+  ]
+  name     = "main"
+  instance = google_sql_database_instance.master.name
+  password = var.main_pwd
+}
+
+resource "google_sql_database" "main" {
+  depends_on = [
+    google_sql_user.main
+  ]
+  name     = "main"
+  instance = google_sql_database_instance.master.name
+}
+
+# Cloud SQL read replica
+
+resource "google_sql_database_instance" "replica" {
+  name                 = "replica-${random_id.db_name_suffix.hex}"
+  master_instance_name = "${var.project_id}:${google_sql_database_instance.master.name}"
+  region               = "europe-west4"
+  database_version     = "POSTGRES_11"
+
+  depends_on = [google_service_networking_connection.private_vpc_connection]
+
+  replica_configuration {
+    failover_target = true
+  }
+
+  settings {
+    tier              = "db-f1-micro"
+    availability_type = "ZONAL"
+    disk_size         = "100"
+    backup_configuration {
+      enabled = false
+    }
+    ip_configuration {
+      ipv4_enabled    = true
+      private_network = google_compute_network.private_network.id
+      //"projects/${var.project_id}/global/networks/default"
+    }
+    location_preference {
+      zone = "europe-west4-a"
+    }
+  }
+}
+
+# Cloud RUN
+
+data "google_cloud_run_locations" "default" { }
+
+resource "google_cloud_run_service" "default" {
+  //for_each = toset(data.google_cloud_run_locations.default.locations)
+  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-3]", location))])
+  name     = "${var.name}--${each.value}"
+  location = each.value
+  project  = var.project_id
 
   template {
     spec {
       containers {
-        image = "gcr.io/google-samples/hello-app:1.0"
+        image = var.image
       }
     }
   }
 
   metadata {
       annotations = {
-        "autoscaling.knative.dev/maxScale"      = "1000"
-        "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.instance.connection_name
-        "run.googleapis.com/client-name"        = "terraform"
+        "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.master.connection_name
       }
     }
-
-  traffic {
-    percent         = 100
-    latest_revision = true
-  }
-
-  # Waits for the Cloud Run API to be enabled & the private subnet
-  depends_on = [
-    google_project_service.run_api,
-    google_service_networking_connection.private_vpc_connection
-  ]
 }
 
-resource "random_id" "db_name_suffix" {
-  byte_length = 4
-}
-
-# Create the Cloud SQL service
-resource "google_sql_database_instance" "instance" {
-  name             = "private-instance-${random_id.db_name_suffix.hex}"
-  region           = "europe-west1"
-  database_version = "MYSQL_5_7"
-  
-  depends_on = [google_service_networking_connection.private_vpc_connection]
-
-  settings {
-    tier = "db-f1-micro"
-    ip_configuration {
-      ipv4_enabled    = false
-      private_network = google_compute_network.private_network.id
-    }
-  }
-
-  deletion_protection  = "true"
-}
-
-# Allow unauthenticated users to invoke the service
-resource "google_cloud_run_service_iam_member" "run_all_users" {
-  service  = google_cloud_run_service.run_service.name
-  location = google_cloud_run_service.run_service.location
+resource "google_cloud_run_service_iam_member" "default" {
+  //for_each = toset(data.google_cloud_run_locations.default.locations)
+  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-3]", location))])
+  location = google_cloud_run_service.default[each.key].location
+  project  = google_cloud_run_service.default[each.key].project
+  service  = google_cloud_run_service.default[each.key].name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
-output "service_url" {
-  value = google_cloud_run_service.run_service.status[0].url
+
+resource "google_compute_region_network_endpoint_group" "default" {
+  //for_each = toset(data.google_cloud_run_locations.default.locations)
+  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-3]", location))])
+  name                  = "${var.name}--neg--${each.key}"
+  network_endpoint_type = "SERVERLESS"
+  region                = google_cloud_run_service.default[each.key].location
+  cloud_run {
+    service = google_cloud_run_service.default[each.key].name
+  }
+}
+
+module "lb-http" {
+  source            = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
+  version           = "~> 4.5"
+
+  project = var.project_id
+  name    = var.name
+
+  ssl                             = false
+  managed_ssl_certificate_domains = []
+  https_redirect                  = true
+  backends = {
+    default = {
+      description            = null
+      enable_cdn             = false
+      custom_request_headers = null
+
+      log_config = {
+        enable      = true
+        sample_rate = 1.0
+      }
+
+      groups = [
+        for neg in google_compute_region_network_endpoint_group.default:
+        {
+          group = neg.id
+        }
+      ]
+
+      iap_config = {
+        enable               = false
+        oauth2_client_id     = null
+        oauth2_client_secret = null
+      }
+      security_policy = null
+    }
+  }
 }

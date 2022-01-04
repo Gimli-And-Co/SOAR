@@ -4,7 +4,7 @@ provider "google" {
 
 # Private network
 
-resource "google_compute_network" "private_network" {
+/*resource "google_compute_network" "private_network" {
   project = "plat-332317"
   provider = google
 
@@ -27,11 +27,11 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.private_network.id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
-}
+}*/
 
 
 # Cloud SQL
-
+/*
 resource "random_id" "db_name_suffix" {
   byte_length = 4
 }
@@ -81,7 +81,7 @@ resource "google_sql_database" "main" {
   instance = google_sql_database_instance.master.name
 }
 
-# Cloud SQL read replica
+# Cloud SQL replica
 
 resource "google_sql_database_instance" "replica" {
   name                 = "replica-${random_id.db_name_suffix.hex}"
@@ -92,7 +92,7 @@ resource "google_sql_database_instance" "replica" {
   depends_on = [google_service_networking_connection.private_vpc_connection]
 
   replica_configuration {
-    failover_target = true
+    failover_target = false
   }
 
   settings {
@@ -111,15 +111,18 @@ resource "google_sql_database_instance" "replica" {
       zone = "europe-west4-a"
     }
   }
-}
+}*/
+
+# Config DB
+# call ansible
 
 # Cloud RUN
 
-data "google_cloud_run_locations" "default" { }
+data "google_cloud_run_locations" "default" {}
 
 resource "google_cloud_run_service" "default" {
   //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-3]", location))])
+  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
   name     = "${var.name}--${each.value}"
   location = each.value
   project  = var.project_id
@@ -132,16 +135,16 @@ resource "google_cloud_run_service" "default" {
     }
   }
 
-  metadata {
-      annotations = {
-        "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.master.connection_name
-      }
+  /*metadata {
+    annotations = {
+      //"run.googleapis.com/cloudsql-instances" = google_sql_database_instance.master.connection_name
     }
+  }*/
 }
 
 resource "google_cloud_run_service_iam_member" "default" {
   //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-3]", location))])
+  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
   location = google_cloud_run_service.default[each.key].location
   project  = google_cloud_run_service.default[each.key].project
   service  = google_cloud_run_service.default[each.key].name
@@ -152,7 +155,7 @@ resource "google_cloud_run_service_iam_member" "default" {
 
 resource "google_compute_region_network_endpoint_group" "default" {
   //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-3]", location))])
+  for_each              = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
   name                  = "${var.name}--neg--${each.key}"
   network_endpoint_type = "SERVERLESS"
   region                = google_cloud_run_service.default[each.key].location
@@ -162,15 +165,15 @@ resource "google_compute_region_network_endpoint_group" "default" {
 }
 
 module "lb-http" {
-  source            = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
-  version           = "~> 4.5"
+  source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
+  version = "~> 4.5"
 
   project = var.project_id
   name    = var.name
 
   ssl                             = false
   managed_ssl_certificate_domains = []
-  https_redirect                  = true
+  https_redirect                  = false
   backends = {
     default = {
       description            = null
@@ -183,7 +186,7 @@ module "lb-http" {
       }
 
       groups = [
-        for neg in google_compute_region_network_endpoint_group.default:
+        for neg in google_compute_region_network_endpoint_group.default :
         {
           group = neg.id
         }
@@ -197,4 +200,9 @@ module "lb-http" {
       security_policy = null
     }
   }
+}
+
+# Open the URL of the webapp
+provisioner "local-exec" {
+  command = "chrome ${frontend_url}"
 }

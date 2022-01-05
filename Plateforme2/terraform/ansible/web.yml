@@ -1,0 +1,58 @@
+- hosts: all
+  become: 'yes'
+  gather_facts: 'yes'
+  vars:
+    repo_path: /mnt/app
+    git_repo_url: https://github.com/Pyrd/TodoApp
+    repo_branch: master
+    NODEJS_VERSION: '14'
+    ansible_distribution_release: bionic
+  tasks:
+    - name: WEB | Apt Update
+      apt:
+        update_cache: 'yes'
+    - name: WEB | Ansible shell module multiple commands
+      shell: 'curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -'
+    - name: Install reqired packages
+      apt: 'name={{ item }} state=present'
+      with_items:
+        - git
+        - curl
+        - wget
+        - nginx
+        - nodejs
+
+    - name: WEB | Clone a private repository
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ repo_path }}"
+        version: "{{ repo_branch }}"
+        accept_hostkey: yes
+    - name: WEB | Install packages using npm
+      npm:
+        path: "{{ repo_path }}/soar-frontend"
+        state: present
+    - name: WEB | Build app
+      command: npm run build
+      environment:
+        VUE_APP_APIURL: '{{ BACKEND_URL }}'
+      args:
+        chdir: "{{ repo_path }}/soar-frontend"
+    - name: WEB | Wait for
+      wait_for:
+        timeout: 10
+    - name: Remove old directory
+      file: path=/var/www/html state=absent
+    - name: WEB | Copy folder to /var/www
+      copy:
+        src: "{{ repo_path }}/soar-frontend/dist"
+        dest: /var/www/
+        remote_src: yes
+    - name: WEB | Rename
+      command: mv /var/www/dist/ /var/www/html
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted

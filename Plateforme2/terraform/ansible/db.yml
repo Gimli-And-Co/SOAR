@@ -1,0 +1,44 @@
+- hosts: postgres_cluster
+  become: yes
+  vars:
+    postgresql_version: 11
+    postgresql_encoding: "UTF-8"
+    postgresql_locale: "en_US.UTF-8"
+    postgresql_ctype: "en_US.UTF-8"
+    postgresql_admin_user: "postgres"
+    postgresql_default_auth_method: "peer"
+    postgresql_listen_addresses: "*"
+    postgresql_wal_level: "replica"
+    postgresql_max_wal_senders: 10
+    postgresql_max_replication_slots: 10
+    postgresql_wal_keep_segments: 100
+    postgresql_hot_standby: on
+    postgresql_archive_mode: on
+    postgresql_archive_command: "/bin/true"
+    postgresql_shared_preload_libraries:
+      - repmgr
+    postgresql_users:
+      - name: "{{repmgr_user}}"
+        pass: "password"
+    postgresql_databases:
+      - name: "{{repmgr_database}}"
+        owner: "{{repmgr_user}}"
+        encoding: "UTF-8"
+    postgresql_user_privileges:
+      - name: "{{repmgr_user}}"
+        db: "{{repmgr_database}}"
+        priv: "ALL"
+        role_attr_flags: "SUPERUSER,REPLICATION"
+    postgresql_pg_hba_custom:
+      - { type: "host", database: "all", user: "all", address: "192.168.0.0/24", method: "md5" }
+      - { type: "host", database: "replication", user: "repmgr", address: "192.168.0.0/24", method: "md5" }  
+      - { type: "host", database: "replication", user: "repmgr", address: "127.0.0.1/32", method: "md5" }  
+
+    # repmgr related variables
+    postgresql_ext_install_repmgr: yes
+    repmgr_target_group: "postgres_cluster"
+    repmgr_target_group_hosts: "{{ groups[repmgr_target_group] }}"
+    repmgr_master: "vm-03"
+  roles:
+    - postgresql
+

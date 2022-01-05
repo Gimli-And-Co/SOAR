@@ -1,0 +1,125 @@
+- hosts: all
+  become: 'yes'
+  gather_facts: 'yes'
+  vars:
+    db_password: postgres123
+    postgres_root_user: postgres
+    postgres_root_pass: postgres123
+    db_user: postgres
+    db_name: soar
+  tasks:
+    - name: Update apt repo and cache on Ubuntu box
+      apt:
+        update_cache: 'yes'
+        force_apt_get: 'yes'
+        cache_valid_time: 3600
+    - name: Upgrade all packages on servers
+      apt:
+        upgrade: dist
+        force_apt_get: 'yes'
+    - name: Install required packages
+      apt:
+        name:
+          - wget
+          - python3-psycopg2
+          - acl
+          - firewalld
+        state: latest
+    - name: Set up Postgres 14 repo
+      shell: >
+        echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release
+        -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc |
+        sudo apt-key add -
+      args:
+        warn: 'no'
+    - name: Install postgresql
+      apt:
+        name: postgresql-14
+        update_cache: 'yes'
+      notify:
+        - Enable Postgresql
+    - name: Ensure PostgreSQL is listening on *
+      lineinfile:
+        dest: /etc/postgresql/14/main/postgresql.conf
+        regexp: ^listen_addresses\s*=
+        line: listen_addresses='*'
+        state: present
+      notify: Restart Postgresql
+    - name: Add new configuration to "pg_hba.conf"
+      blockinfile:
+        dest: /etc/postgresql/14/main/pg_hba.conf
+        block: |
+          host    all             all             0.0.0.0/0                md5
+          host    all             all             ::/0                     md5
+      notify: Restart Postgresql
+    - name: Change peer identification to trust
+      shell: /bin/sed -i '/^local/s/peer/trust/' /etc/postgresql/14/main/pg_hba.conf
+      args:
+        warn: 'no'
+      notify: Restart Postgresql
+    - name: Create a Superuser PostgreSQL database user
+      become: 'yes'
+      become_user: postgres
+      postgresql_user:
+        name: '{{ postgres_root_user }}'
+        password: '{{ postgres_root_pass }}'
+        role_attr_flags: 'CREATEDB,SUPERUSER,CREATEROLE'
+        encrypted: 'yes'
+        state: present
+    - name: Wait for server to start
+      wait_for:
+        port: 5432
+        delay: 5
+    - name: Change postgres password
+      shell: >-
+        sudo -u postgres psql -c "ALTER USER postgres WITH password '{{
+        db_password }}'"
+    - name: Start and enable firewalld
+      systemd:
+        name: firewalld
+        enabled: 'yes'
+        state: started
+    - name: Allow postgresql through firewall
+      firewalld:
+        service: postgresql
+        permanent: 'yes'
+        state: enabled
+    - name: Reload firewalld
+      shell: firewall-cmd --reload
+    - name: List reloaded firewall
+      shell: firewall-cmd --list-all
+    - name: "Create app database"
+      postgresql_db:
+        state: present
+        name: "{{ db_name }}"
+      become: yes
+      become_user: postgres
+    - name: "Grant db user access to app db"
+      postgresql_privs:
+        type: database
+        database: "{{ db_name }}"
+        roles: "{{ postgres_root_user }}"
+        grant_option: no
+        privs: all
+      become: yes
+      become_user: postgres
+      notify: Restart Postgresql
+  handlers:
+    - name: Restart Postgresql
+      systemd:
+        name: postgresql
+        state: restarted
+    - name: Start Postgresql
+      systemd:
+        name: postgresql
+        state: started
+    - name: Stop Postgresql
+      systemd:
+        name: postgresql
+        state: stopped
+    - name: Enable Postgresql
+      systemd:
+        name: postgresql
+        enabled: 'yes'

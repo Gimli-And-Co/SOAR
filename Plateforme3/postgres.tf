@@ -12,7 +12,7 @@ resource "google_sql_database_instance" "masterv2" {
   //depends_on = [google_service_networking_connection.private_vpc_connection]
   deletion_protection=false
   settings {
-    tier              = "db-n1-standard-4"
+    tier              = "db-f1-micro"
     availability_type = "REGIONAL"
     disk_size         = "10"
 

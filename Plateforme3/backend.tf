@@ -5,18 +5,18 @@
 resource "google_project_service" "run_api" {
   service = "run.googleapis.com"
 
-  disable_on_destroy = true
+  disable_on_destroy = false
 }
 
 resource "google_cloud_run_service" "backend" {
-  //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  name     = "${var.name_backend}--${each.value}"
-  location = each.value
+  name     = "${var.name_backend}--${random_id.db_name_suffix.hex}"
+  location = "europe-west1"
   project  = var.project_id
 
   depends_on = [
-    google_project_service.run_api
+    google_project_service.run_api,
+    google_sql_database_instance.masterv2,
+    google_sql_database.backendDB
   ]
 
   template {
@@ -24,7 +24,7 @@ resource "google_cloud_run_service" "backend" {
       containers {
         image = var.image_back
         ports {
-          container_port = "8080"
+          container_port = "3000"
         }
         env {
           name  = "NODE_ENV"
@@ -32,7 +32,7 @@ resource "google_cloud_run_service" "backend" {
         }
         env {
           name  = "DB_HOST"
-          value = google_sql_database_instance.masterv2.self_link
+          value = google_sql_database_instance.masterv2.ip_address.0.ip_address
         }
         env {
           name  = "DB_USERNAME"
@@ -64,29 +64,42 @@ resource "google_cloud_run_service" "backend" {
 }
 
 resource "google_cloud_run_service_iam_member" "backend" {
-  //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  location = google_cloud_run_service.backend[each.key].location
-  project  = google_cloud_run_service.backend[each.key].project
-  service  = google_cloud_run_service.backend[each.key].name
+
+  location = google_cloud_run_service.backend.location
+  project  = google_cloud_run_service.backend.project
+  service  = google_cloud_run_service.backend.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
+data "google_iam_policy" "noauth" {
+  binding {
+    role = "roles/run.invoker"
+    members = [
+      "allUsers",
+    ]
+  }
+}
+
+resource "google_cloud_run_service_iam_policy" "noauth" {
+  location    = google_cloud_run_service.backend.location
+  project     = google_cloud_run_service.backend.project
+  service     = google_cloud_run_service.backend.name
+  policy_data = data.google_iam_policy.noauth.policy_data
+}
+
 
 resource "google_compute_region_network_endpoint_group" "backend" {
-  //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each              = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  name                  = "${var.name_backend}--neg--${each.key}"
+  name                  = "${var.name_backend}--neg--${random_id.db_name_suffix.hex}"
   network_endpoint_type = "SERVERLESS"
-  region                = google_cloud_run_service.backend[each.key].location
+  region                = google_cloud_run_service.backend.location
   cloud_run {
-    service = google_cloud_run_service.backend[each.key].name
+    service = google_cloud_run_service.backend.name
   }
 }
 
 
-module "lb-http-backend" {
+/*module "lb-http-backend" {
   source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
   version = "~> 4.5"
 
@@ -122,4 +135,4 @@ module "lb-http-backend" {
       security_policy = null
     }
   }
-}
+}*/

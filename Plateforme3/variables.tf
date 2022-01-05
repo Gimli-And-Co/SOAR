@@ -55,17 +55,10 @@ variable "frontend_url" {
 
 variable "image_front" {
   description = "container image to deploy"
-  default     = "gcr.io/plat-332317/soar-webapp-v1:tag1"
+  default     = "gcr.io/plat-332317/soar-webapp-v1:latest"
 }
 
 variable "image_back" {
   description = "container image to deploy"
-  default     = "gcr.io/plat-332317/soar-webapp-backend:v4"
+  default     = "gcr.io/plat-332317/soar-webapp-backend:v5"
 }
-
-/*variable "ssl" {
-  description = "Run load balancer on HTTPS and provision managed certificate with provided `domain`."
-  type        = bool
-  default     = true
-}*/
-

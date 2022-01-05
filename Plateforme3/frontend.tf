@@ -2,26 +2,17 @@
 # Frontend  #
 # # # # # # #
 
-data "google_cloud_run_locations" "default" {} // also used for backend
+data "google_cloud_run_locations" "default" {}
 
 resource "google_cloud_run_service" "frontend" {
-  //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  name     = "${var.name}--${each.value}"
-  location = each.value
+  name     = "${var.name}--${random_id.db_name_suffix.hex}"
+  location = "europe-west1"
   project  = var.project_id
 
   template {
     spec {
       containers {
         image = var.image_front
-        /*ports {
-          container_port = "8080"
-        }
-        env {
-          name  = "NODE_ENV"
-          value = "production"
-        }*/
       }
     }
   }
@@ -32,28 +23,24 @@ resource "google_cloud_run_service" "frontend" {
 }
 
 resource "google_cloud_run_service_iam_member" "frontend" {
-  //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  location = google_cloud_run_service.frontend[each.key].location
-  project  = google_cloud_run_service.frontend[each.key].project
-  service  = google_cloud_run_service.frontend[each.key].name
+  location = google_cloud_run_service.frontend.location
+  project  = google_cloud_run_service.frontend.project
+  service  = google_cloud_run_service.frontend.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
 
 resource "google_compute_region_network_endpoint_group" "frontend" {
-  //for_each = toset(data.google_cloud_run_locations.default.locations)
-  for_each              = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  name                  = "${var.name}--neg--${each.key}"
+  name                  = "${var.name_backend}--neg--${random_id.db_name_suffix.hex}"
   network_endpoint_type = "SERVERLESS"
-  region                = google_cloud_run_service.frontend[each.key].location
+  region                = google_cloud_run_service.frontend.location
   cloud_run {
-    service = google_cloud_run_service.frontend[each.key].name
+    service = google_cloud_run_service.frontend.name
   }
 }
 
-module "lb-http-frontend" {
+/*module "lb-http-frontend" {
   source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
   version = "~> 4.5"
 
@@ -89,4 +76,4 @@ module "lb-http-frontend" {
       security_policy = null
     }
   }
-}
+}*/

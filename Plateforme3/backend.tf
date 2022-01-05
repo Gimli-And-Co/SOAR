@@ -2,6 +2,11 @@
 # Backend #
 # # # # # #
 
+resource "google_project_service" "run_api" {
+  service = "run.googleapis.com"
+
+  disable_on_destroy = true
+}
 
 resource "google_cloud_run_service" "backend" {
   //for_each = toset(data.google_cloud_run_locations.default.locations)
@@ -10,12 +15,45 @@ resource "google_cloud_run_service" "backend" {
   location = each.value
   project  = var.project_id
 
+  depends_on = [
+    google_project_service.run_api
+  ]
+
   template {
     spec {
       containers {
         image = var.image_back
+        ports {
+          container_port = "8080"
+        }
+        env {
+          name  = "NODE_ENV"
+          value = "production"
+        }
+        env {
+          name  = "DB_HOST"
+          value = google_sql_database_instance.masterv2.self_link
+        }
+        env {
+          name  = "DB_USERNAME"
+          value = var.db_user_username
+        }
+        env {
+          name  = "DB_PWD"
+          value = var.db_user_password
+        }
+        env {
+          name  = "DB_DATABASE"
+          value = "backendDB"
+        }
+        env {
+          name  = "DB_PORT"
+          value = "5432"
+        }
+
       }
     }
+
   }
 
   metadata {
@@ -47,19 +85,20 @@ resource "google_compute_region_network_endpoint_group" "backend" {
   }
 }
 
-/*module "lb-http" {
+
+module "lb-http-backend" {
   source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
   version = "~> 4.5"
 
   project = var.project_id
-  name    = var.name_backend
+  name    = var.name
 
   ssl                             = false
   managed_ssl_certificate_domains = []
   https_redirect                  = false
   backends = {
     default = {
-      description            = null
+            description            = null
       enable_cdn             = false
       custom_request_headers = null
 
@@ -83,4 +122,4 @@ resource "google_compute_region_network_endpoint_group" "backend" {
       security_policy = null
     }
   }
-}*/
+}

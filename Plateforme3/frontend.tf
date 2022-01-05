@@ -15,9 +15,20 @@ resource "google_cloud_run_service" "frontend" {
     spec {
       containers {
         image = var.image_front
+        /*ports {
+          container_port = "8080"
+        }
+        env {
+          name  = "NODE_ENV"
+          value = "production"
+        }*/
       }
     }
   }
+
+  depends_on = [
+      google_project_service.run_api
+  ]
 }
 
 resource "google_cloud_run_service_iam_member" "frontend" {
@@ -42,7 +53,7 @@ resource "google_compute_region_network_endpoint_group" "frontend" {
   }
 }
 
-module "lb-http" {
+module "lb-http-frontend" {
   source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
   version = "~> 4.5"
 
@@ -65,31 +76,6 @@ module "lb-http" {
 
       groups = [
         for neg in google_compute_region_network_endpoint_group.frontend :
-        {
-          group = neg.id
-        }
-      ]
-
-      iap_config = {
-        enable               = false
-        oauth2_client_id     = null
-        oauth2_client_secret = null
-      }
-      security_policy = null
-    }
-    
-    backend-lb = {
-      description            = null
-      enable_cdn             = false
-      custom_request_headers = null
-
-      log_config = {
-        enable      = true
-        sample_rate = 1.0
-      }
-
-      groups = [
-        for neg in google_compute_region_network_endpoint_group.backend :
         {
           group = neg.id
         }

@@ -17,29 +17,24 @@ variable "name_backend" {
 }
 
 # Backend
-/*locals {
-  dbip = google_sql_database_instance.ip_configuration.private_network
-  dbname = google_sql_database.name
-}*/
 
 variable "db_ip" {
-  type = string
+  type    = string
   default = "wrong"
-  //default = google_compute_network.private_network.id
 }
 
 variable "db_name" {
-  type = string
+  type    = string
   default = "backendDB"
 }
 
 variable "db_user_username" {
-  type = string
+  type    = string
   default = "postgres_user"
 }
 
 variable "db_user_password" {
-  type = string
+  type    = string
   default = "postgres"
 }
 
@@ -54,7 +49,7 @@ variable "python_script" {
 variable "frontend_url" {
   description = "URL of the frontend page"
   type        = string
-  default = "someIP"
+  default     = "someIP"
   //default     = "http://${module.lb-http.external_ip}"
 }
 
@@ -65,10 +60,12 @@ variable "image_front" {
 
 variable "image_back" {
   description = "container image to deploy"
-default     = "gcr.io/plat-332317/soar-webapp-backend:v4"
+  default     = "gcr.io/plat-332317/soar-webapp-backend:v4"
 }
 
-/*variable "main_pwd" {
-  type = string
-  default = "postgres"
+/*variable "ssl" {
+  description = "Run load balancer on HTTPS and provision managed certificate with provided `domain`."
+  type        = bool
+  default     = true
 }*/
+

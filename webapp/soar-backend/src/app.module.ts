@@ -17,7 +17,8 @@ import { TasksModule } from './tasks/tasks.module';
     TypeOrmModule.forRootAsync({
       useFactory: async (config: ConfigService) => {
         const dbConf = config.get('database');
-        console.log(__dirname);
+        console.log(dbConf);
+
         return {
           type: 'postgres',
           host: dbConf.host,

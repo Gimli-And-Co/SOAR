@@ -4,9 +4,7 @@
       <v-col cols="12" class="centered">
         <span class="text-h3 font-weight-medium primary--text">My tasks</span>
         <v-spacer></v-spacer>
-        <v-btn @click="addModalState = true" color="primary"
-          >Add a new task</v-btn
-        >
+        <v-btn @click="addModalState = true" color="primary">Add a new task</v-btn>
       </v-col>
       <v-col cols="12">
         <v-divider></v-divider>
@@ -20,28 +18,20 @@
           :three-line="item.description"
           class="fwidth"
         >
-          <v-checkbox
-            v-model="item.completed"
-            class="mr-4"
-            v-on:change="markAsCompleted(item.id)"
-          ></v-checkbox>
+          <v-checkbox v-model="item.completed" class="mr-4" v-on:change="markAsCompleted(item.id)"></v-checkbox>
           <v-list-item-content>
-            <v-list-item-title
-              ><span class="font-weight-medium">{{ item.title }}</span> -
-              {{ item.creation_date | formatDate }}</v-list-item-title
-            >
-            <v-list-item-subtitle v-if="item.description">
-              {{ item.description }}
-            </v-list-item-subtitle>
+            <v-list-item-title>
+              <span class="font-weight-medium">{{ item.title }}</span>
+              -
+              {{ item.creation_date | formatDate }}
+            </v-list-item-title>
+            <v-list-item-subtitle v-if="item.description">{{ item.description }}</v-list-item-subtitle>
           </v-list-item-content>
           <v-list-item-action>
             <v-hover v-slot="{ hover }">
-              <v-btn
-                icon
-                @click="deleteTask(item.id)"
-                :color="hover ? 'error' : ''"
-                ><v-icon>mdi-delete</v-icon></v-btn
-              >
+              <v-btn icon @click="deleteTask(item.id)" :color="hover ? 'error' : ''">
+                <v-icon>mdi-delete</v-icon>
+              </v-btn>
             </v-hover>
           </v-list-item-action>
         </v-list-item>
@@ -49,7 +39,7 @@
     </v-row>
     <v-dialog v-model="addModalState" width="33%">
       <v-card outlined>
-        <v-card-title> Create your task ! </v-card-title>
+        <v-card-title>Create your task !</v-card-title>
         <v-card-actions>
           <v-form ref="form" lazy-validation v-model="formValid" class="fwidth">
             <v-text-field
@@ -58,15 +48,13 @@
               required
               outlined
               v-model="taskTitleInput"
-            >
-            </v-text-field>
+            ></v-text-field>
             <v-text-field
               label="Description (optional)"
               placeholder="Do the laundry"
               outlined
               v-model="taskDescriptionInput"
-            >
-            </v-text-field>
+            ></v-text-field>
           </v-form>
         </v-card-actions>
         <v-card-actions>
@@ -111,7 +99,7 @@ export default {
     },
     async markAsCompleted(id) {
       const index = this.tasks.findIndex((e) => e.id == id);
-      await this.$axios.patch(`/tasks/${id}`, {
+      await this.$axios.patch(`tasks/${id}`, {
         ...this.tasks[index],
       });
     },

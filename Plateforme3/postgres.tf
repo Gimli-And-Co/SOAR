@@ -10,18 +10,22 @@ resource "google_sql_database_instance" "masterv2" {
   database_version = "POSTGRES_11"
 
   //depends_on = [google_service_networking_connection.private_vpc_connection]
-
+  deletion_protection=false
   settings {
-    tier              = "db-f1-micro"
+    tier              = "db-n1-standard-4"
     availability_type = "REGIONAL"
     disk_size         = "10"
-    
+
     backup_configuration {
       enabled = true
     }
-    
+
     ip_configuration {
-      ipv4_enabled    = true
+      ipv4_enabled = true
+      authorized_networks {
+        name  = "all"
+        value = "0.0.0.0/0"
+      }
       //private_network = google_compute_network.private_network.id
       // "projects/${var.project_id}/global/networks/default"
     }
@@ -49,41 +53,6 @@ resource "google_sql_database" "backendDB" {
   instance = google_sql_database_instance.masterv2.name
 }
 
-/*resource "google_cloud_run_service" "run" {
-    name="socialmedia"
-    location = "us-central1"
-    template {
-        spec {
-            containers {
-                image = "gcr.io/${var.project_name}/socialmedia:latest"
-                ports {
-                    container_port = 5000
-                }
-                env {
-                    name="ENV"
-                    value = "production"
-                }
-                env {
-                    name="DB_HOST"
-                    value = "35.204.24.131"
-                }
-                env {
-                    name="JWT_KEY"
-                    value = var.jwt_key
-                }
-                env {
-                    name="DB_URL"
-                    value = "postgresql://${var.database_user}:${var.database_password}@/socialmedia?host=/cloudsql/${google_sql_database_instance.instance.connection_name}"
-                }
-            }
-        }
-        metadata {
-            annotations = {
-                "run.googleapis.com/cloudsql-instances"=google_sql_database_instance.instance.connection_name
-            }
-        }
-    }
-}*/
 
 # Cloud SQL replica
 

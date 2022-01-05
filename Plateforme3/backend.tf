@@ -2,11 +2,11 @@
 # Backend #
 # # # # # #
 
-/*
+
 resource "google_cloud_run_service" "backend" {
   //for_each = toset(data.google_cloud_run_locations.default.locations)
   for_each = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  name     = "${var.name}--${each.value}"
+  name     = "${var.name_backend}--${each.value}"
   location = each.value
   project  = var.project_id
 
@@ -20,7 +20,7 @@ resource "google_cloud_run_service" "backend" {
 
   metadata {
     annotations = {
-      "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.master.connection_name
+      "run.googleapis.com/cloudsql-instances" = google_sql_database_instance.masterv2.connection_name
     }
   }
 }
@@ -39,7 +39,7 @@ resource "google_cloud_run_service_iam_member" "backend" {
 resource "google_compute_region_network_endpoint_group" "backend" {
   //for_each = toset(data.google_cloud_run_locations.default.locations)
   for_each              = toset([for location in data.google_cloud_run_locations.default.locations : location if can(regex("europe-(?:west|central|east)[1-2]", location))])
-  name                  = "${var.name}--neg--${each.key}"
+  name                  = "${var.name_backend}--neg--${each.key}"
   network_endpoint_type = "SERVERLESS"
   region                = google_cloud_run_service.backend[each.key].location
   cloud_run {
@@ -47,12 +47,12 @@ resource "google_compute_region_network_endpoint_group" "backend" {
   }
 }
 
-module "lb-http" {
+/*module "lb-http" {
   source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
   version = "~> 4.5"
 
   project = var.project_id
-  name    = var.name
+  name    = var.name_backend
 
   ssl                             = false
   managed_ssl_certificate_domains = []

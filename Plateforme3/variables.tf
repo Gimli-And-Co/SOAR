@@ -5,9 +5,15 @@ variable "project_id" {
 }
 
 variable "name" {
-  description = "LB name"
+  description = "LB name frontend"
   type        = string
   default     = "frontend"
+}
+
+variable "name_backend" {
+  description = "LB name backend"
+  type        = string
+  default     = "backend"
 }
 
 # Backend
@@ -59,7 +65,7 @@ variable "image_front" {
 
 variable "image_back" {
   description = "container image to deploy"
-default     = "gcr.io/plat-332317/A CHANGER"
+default     = "gcr.io/plat-332317/soar-webapp-backend:v4"
 }
 
 /*variable "main_pwd" {

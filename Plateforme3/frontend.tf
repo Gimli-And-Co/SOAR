@@ -77,5 +77,30 @@ module "lb-http" {
       }
       security_policy = null
     }
+    
+    backend-lb = {
+      description            = null
+      enable_cdn             = false
+      custom_request_headers = null
+
+      log_config = {
+        enable      = true
+        sample_rate = 1.0
+      }
+
+      groups = [
+        for neg in google_compute_region_network_endpoint_group.backend :
+        {
+          group = neg.id
+        }
+      ]
+
+      iap_config = {
+        enable               = false
+        oauth2_client_id     = null
+        oauth2_client_secret = null
+      }
+      security_policy = null
+    }
   }
 }

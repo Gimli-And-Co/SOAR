@@ -1,0 +1,75 @@
+- become: 'yes'
+  hosts: all
+  gather_facts: 'yes'
+  vars:
+    repo_path: /mnt/app
+    git_repo_url: https://github.com/Pyrd/TodoApp
+    repo_branch: master
+    NODEJS_VERSION: '14'
+    ansible_distribution_release: bionic
+  tasks:
+    - name: API | Run the equivalent of "apt-get update" as a separate step
+      apt:
+        update_cache: 'yes'
+    - name: Ansible shell module multiple commands
+      shell: 'curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -'
+    - name: Install reqired packages
+      apt: 'name={{ item }} state=present'
+      with_items:
+        - git
+        - curl
+        - wget
+        - nginx
+        - nodejs
+    - name: API | Overwrite /etc/nginx/conf.d/default.conf
+      template: >-
+        src=templates/api-nginx.conf.j2 dest=/etc/nginx/sites-available/default
+        owner=root group=root mode=0644
+      notify: restart nginx
+
+
+    - name: API | Clone a private repository
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ repo_path }}"
+        version: "{{ repo_branch }}"
+        accept_hostkey: yes
+    - name: NODE | Install pm2
+      npm:
+        name: pm2
+        global: yes
+        production: yes
+        state: present
+    - name: API | Add .env
+      template: >-
+        src=templates/api-env.conf.j2 dest=/mnt/app/soar-backend/.env
+        owner=root group=root mode=0644
+    - name: API | Install packages using npm
+      npm:
+        path: '{{ repo_path }}/soar-backend'
+        state: present
+    - name: API | Build app
+      command: npm run build
+      args:
+        chdir: '{{ repo_path }}/soar-backend'
+      
+    - name: API | Wait
+      wait_for:
+        timeout: 10
+    - name: API | Start APP
+      environment:
+        DB_HOST: '{{ DB_HOST }}'
+        DB_DATABASE: soar
+        DB_USERNAME: postgres
+        DB_PWD: postgres123
+        PORT: '8080'
+      shell: pm2 start dist/main.js --name server
+      args:
+        chdir: '{{ repo_path }}/soar-backend'
+      ignore_errors: yes
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
